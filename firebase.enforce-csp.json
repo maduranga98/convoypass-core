@@ -29,6 +29,7 @@
     }
   ],
   "hosting": {
+    "site": "convoypass-core",
     "public": "dist",
     "ignore": [
       "firebase.json",
