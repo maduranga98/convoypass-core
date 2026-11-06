@@ -1,0 +1,126 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  /*
+   * ConvoyPass brand palette. Components use these names only (bg-brand, text-danger-strong, ...); never a raw hex or a
+   * Tailwind colour scale. Every text/background pair below is checked against WCAG 2.1 AA by `npm run contrast`
+   * (scripts/check-contrast.ts), so change a value and the check tells you whether the pairing still holds.
+   */
+
+  /* Company red: primary buttons, sidebars and top bars, selected states. Text never uses it; text is `ink`. */
+  --color-brand: #a81d27;
+  --color-brand-hover: #861820;
+
+  /* Charcoal grey: body text, headings and text on amber (= slate-900). */
+  --color-ink: #171717;
+
+  /*
+   * Accent amber: highlights (active navigation, selection, unread dot, "pending" status). Amber is too light for white
+   * text and for text on white, so text on accent is always ink charcoal and amber is never used as text colour.
+   */
+  --color-accent: #f59e0b;
+  --color-accent-hover: #d97706;
+  --color-accent-soft: #fef3c7;
+
+  /* Status colours. Base = icons, borders, large fills. `-strong` = text on light surfaces and fills that carry white text. */
+  --color-success: #16a34a;
+  --color-success-strong: #15803d;
+  --color-success-hover: #166534;
+  --color-success-soft: #f0fdf4;
+  --color-success-ink: #14532d;
+
+  --color-warning: #d97706;
+  --color-warning-strong: #b45309;
+  --color-warning-soft: #fffbeb;
+  --color-warning-ink: #78350f;
+
+  --color-danger: #dc2626;
+  --color-danger-strong: #b91c1c;
+  --color-danger-hover: #991b1b;
+  --color-danger-soft: #fef2f2;
+  --color-danger-ink: #7f1d1d;
+
+  /* Surfaces and the colour of text/icons that sit on a solid brand/status fill; focus ring; modal and camera scrims. */
+  --color-surface: #ffffff;
+  --color-on-solid: #ffffff;
+  --color-focus: #171717;
+  --color-scrim: #000000;
+
+  /* Slate neutrals (identical to Tailwind's defaults, declared here so the whole palette lives in one place). */
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f5f5f5;
+  --color-slate-200: #e5e5e5;
+  --color-slate-300: #d4d4d4;
+  --color-slate-400: #a3a3a3;
+  --color-slate-500: #737373;
+  --color-slate-600: #525252;
+  --color-slate-700: #404040;
+  --color-slate-800: #262626;
+  --color-slate-900: #171717;
+  --color-slate-950: #0a0a0a;
+
+  /* A short sideways shake for a PIN that did not work (only with motion allowed: `motion-safe:animate-shake`). */
+  --animate-shake: shake 0.4s ease-in-out;
+  @keyframes shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    20%,
+    60% {
+      transform: translateX(-10px);
+    }
+    40%,
+    80% {
+      transform: translateX(10px);
+    }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+}
+
+/* Label sheets print on A4 with 10 mm margins; app chrome hides itself with `print:` variants. */
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+/* Reports: the table header repeats on every printed page, the totals row does not. */
+@media print {
+  .report-table thead {
+    display: table-header-group;
+  }
+  .report-table tfoot {
+    display: table-row-group;
+  }
+  .report-table tr {
+    break-inside: avoid;
+  }
+  .report-table {
+    font-size: 8.5pt;
+  }
+  .report-table th,
+  .report-table td {
+    padding: 2px 6px !important;
+  }
+}
+
+@media print {
+  html,
+  body {
+    background: var(--color-surface) !important;
+    color: var(--color-scrim) !important;
+  }
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+}

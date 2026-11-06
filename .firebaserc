@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "industrial-glow-295915",
+    "staging": "REPLACE-ME-conveypass-staging",
+    "prod": "REPLACE-ME-conveypass-prod"
+  }
+}

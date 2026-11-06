@@ -1,0 +1,110 @@
+rules_version = '2';
+
+// Driver photos: tenants/{tenantId}/contractors/{contractorId}/drivers/{uid}.jpg
+// Pass evidence: tenants/{tenantId}/passes/{vehicleId}/{dateKey}/{attempt}/{file}
+// Penalty evidence: tenants/{tenantId}/penalties/{penaltyId}/evidence.jpg
+// Role, tenant and contractor come from custom claims (set by Cloud Functions). Everything else is denied.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function role() {
+      return request.auth.token.get('role', null);
+    }
+    function inTenant(tid) {
+      return signedIn() && request.auth.token.get('tenantId', null) == tid;
+    }
+    function supervises(cid) {
+      return role() == 'supervisor' && request.auth.token.get('contractorId', null) == cid;
+    }
+
+    match /tenants/{tid}/contractors/{cid}/drivers/{file} {
+      allow read: if inTenant(tid) && (
+        role() in ['admin', 'officer', 'security']
+        || supervises(cid)
+        || (role() == 'driver' && file == request.auth.uid + '.jpg')
+      );
+
+      // Create/replace only; photos are never deleted from the client.
+      allow create, update: if inTenant(tid)
+        && (role() == 'admin' || supervises(cid))
+        && file.matches('[A-Za-z0-9]+[.]jpg')
+        && request.resource.contentType == 'image/jpeg'
+        && request.resource.size < 1024 * 1024;
+    }
+
+    // Pass evidence. Rules read Firestore (`firestore.get`), so the Storage service agent needs the cross-service
+    // IAM grant on first deploy (roles/firebasestorage.serviceAgent); the Firebase CLI offers to add it.
+    function vehiclePath(vid) {
+      return /databases/(default)/documents/vehicles/$(vid);
+    }
+    function passPath(vid, dateKey) {
+      return /databases/(default)/documents/passes/$(vid + '_' + dateKey);
+    }
+    function assignedDriver(tid, vid) {
+      return role() == 'driver'
+        && firestore.exists(vehiclePath(vid))
+        && firestore.get(vehiclePath(vid)).data.tenantId == tid
+        && request.auth.uid in firestore.get(vehiclePath(vid)).data.assignedDriverIds;
+    }
+    // Uploads are open only while there is no pass yet, or the pass was rejected and `attempt` is the next one
+    // for the same driver. Once a pass is submitted its evidence is locked.
+    function uploadOpen(vid, dateKey, attempt) {
+      return !firestore.exists(passPath(vid, dateKey))
+        || (firestore.get(passPath(vid, dateKey)).data.status == 'rejected'
+            && firestore.get(passPath(vid, dateKey)).data.driverId == request.auth.uid
+            && int(attempt) == firestore.get(passPath(vid, dateKey)).data.attempt + 1);
+    }
+
+    match /tenants/{tid}/passes/{vid}/{dateKey}/{attempt}/{file} {
+      allow read: if inTenant(tid) && (
+        role() in ['admin', 'officer', 'security']
+        || (role() == 'supervisor' && firestore.exists(vehiclePath(vid))
+            && firestore.get(vehiclePath(vid)).data.tenantId == tid
+            && supervises(firestore.get(vehiclePath(vid)).data.contractorId))
+        || assignedDriver(tid, vid)
+      );
+
+      // Create/replace only; evidence is never deleted from the client.
+      allow create, update: if inTenant(tid)
+        && assignedDriver(tid, vid)
+        && file in ['gps.jpg', 'dashcam.jpg', 'extra1.jpg', 'extra2.jpg']
+        && attempt.matches('^[1-5]$')
+        && dateKey.matches('^[0-9]{8}$')
+        && request.resource.contentType == 'image/jpeg'
+        && request.resource.size < 700 * 1024
+        && uploadOpen(vid, dateKey, attempt);
+    }
+
+    // Penalty evidence (one optional photo per penalty). The browser uploads it BEFORE `issuePenalty` creates the penalty,
+    // so a write is allowed only for an admin or Safety Officer of the tenant while no penalty with that id exists (the
+    // photo of an issued penalty can never be replaced or removed). Read: the company's admins and Safety Officers, and
+    // the supervisor of the contractor the penalty belongs to. Security, officers and drivers never read it.
+    function penaltyPath(pid) {
+      return /databases/(default)/documents/penalties/$(pid);
+    }
+    match /tenants/{tid}/penalties/{pid}/{file} {
+      allow read: if inTenant(tid) && (
+        role() in ['admin', 'safety']
+        || (role() == 'supervisor' && firestore.exists(penaltyPath(pid))
+            && firestore.get(penaltyPath(pid)).data.tenantId == tid
+            && supervises(firestore.get(penaltyPath(pid)).data.contractorId))
+      );
+
+      allow create: if inTenant(tid)
+        && resource == null // never replaces a photo that is already there
+        && role() in ['admin', 'safety']
+        && file == 'evidence.jpg'
+        && pid.matches('^pen_[a-z0-9]{10}$')
+        && request.resource.contentType == 'image/jpeg'
+        && request.resource.size < 700 * 1024
+        && !firestore.exists(penaltyPath(pid));
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

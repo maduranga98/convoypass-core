@@ -1,0 +1,254 @@
+rules_version = '2';
+
+// Deny by default. Roles/tenant come ONLY from custom claims (set by Cloud Functions).
+// `operators`, `platformAuditLog`, `setupInvites` (no client access at all), `users`, `tenants`, `auditLog`, `vehicles`, `drivers`, `vehiclePlates`, `passes`, `gateEvents`, `penalties`, `penaltyTypes`, `inspections`, `visits`, `gatePasses` and `monthEndQualification` are never client-writable
+// (`notifications` accept one client write: `readAt` on your own); `users/*/devices` and `rateLimits` are closed;
+// Cloud Functions use the Admin SDK. `contractors` accept admin writes to descriptive fields only.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function role() {
+      return request.auth.token.get('role', null);
+    }
+    function tenantId() {
+      return request.auth.token.get('tenantId', null);
+    }
+    function contractorId() {
+      return request.auth.token.get('contractorId', null);
+    }
+    function sameTenant(data) {
+      return signedIn() && tenantId() != null && data.tenantId == tenantId();
+    }
+
+    match /tenants/{id} {
+      allow read: if signedIn() && tenantId() == id;
+      allow write: if false;
+    }
+
+    match /users/{uid} {
+      // Own profile: only for tenant accounts. A platform operator (no tenantId, Module 9) has no `users` doc and no
+      // tenant data access of any kind, so even their own uid is not a path in.
+      allow read: if signedIn() && (
+        (request.auth.uid == uid && tenantId() != null)
+        || (role() == 'admin' && sameTenant(resource.data))
+        || (role() == 'supervisor'
+            && sameTenant(resource.data)
+            && resource.data.role == 'driver'
+            && contractorId() != null
+            && resource.data.contractorId == contractorId())
+      );
+      allow write: if false;
+    }
+
+    match /contractors/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && (
+        role() in ['admin', 'officer', 'security', 'safety']
+        || (role() in ['supervisor', 'driver'] && contractorId() != null && id == contractorId())
+      );
+
+      // `status` is function-only (setContractorStatus). A new contractor starts active; nothing else may set it.
+      allow create: if signedIn() && role() == 'admin'
+        && request.resource.data.keys().hasOnly(
+          ['tenantId', 'name', 'contactName', 'phone', 'address', 'notes', 'status', 'createdAt', 'createdBy', 'updatedAt'])
+        && request.resource.data.keys().hasAll(
+          ['tenantId', 'name', 'status', 'createdAt', 'createdBy', 'updatedAt'])
+        && request.resource.data.tenantId == tenantId()
+        && request.resource.data.status == 'active'
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && validContractorFields(request.resource.data);
+
+      // Admins may change descriptive fields only. Any other changed key (status, tenantId, createdBy, ...) is denied.
+      allow update: if signedIn() && role() == 'admin'
+        && sameTenant(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'contactName', 'phone', 'address', 'notes', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && validContractorFields(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    function validContractorFields(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 100
+        && (!('contactName' in d) || d.contactName == null || (d.contactName is string && d.contactName.size() <= 100))
+        && (!('phone' in d) || d.phone == null || (d.phone is string && d.phone.size() <= 30))
+        && (!('address' in d) || d.address == null || (d.address is string && d.address.size() <= 200))
+        && (!('notes' in d) || d.notes == null || (d.notes is string && d.notes.size() <= 1000));
+    }
+
+    // Vehicles and drivers are written only by Cloud Functions (Admin SDK). The Safety Officer reads them tenant-wide
+    // (expiry status and the clearance copy, read only).
+    // Drivers read only the vehicles they are assigned to (query with array-contains on their uid).
+    match /vehicles/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && (
+        role() in ['admin', 'officer', 'security', 'safety']
+        || (role() == 'supervisor' && contractorId() != null && resource.data.contractorId == contractorId())
+        || (role() == 'driver' && request.auth.uid in resource.data.assignedDriverIds)
+      );
+      allow write: if false;
+    }
+
+    match /drivers/{uid} {
+      allow read: if signedIn() && sameTenant(resource.data) && (
+        role() in ['admin', 'officer', 'security', 'safety']
+        || (role() == 'supervisor' && contractorId() != null && resource.data.contractorId == contractorId())
+        || (role() == 'driver' && request.auth.uid == uid)
+      );
+      allow write: if false;
+    }
+
+    // Plate uniqueness guards: server only.
+    match /vehiclePlates/{id} {
+      allow read, write: if false;
+    }
+
+    // Passes are written only by Cloud Functions (submitPass, the approval functions, checkIn). Clients read:
+    // drivers their own, supervisors their contractor's, admin/officer/security the tenant's.
+    match /passes/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && (
+        role() in ['admin', 'officer', 'security']
+        || (role() == 'supervisor' && contractorId() != null && resource.data.contractorId == contractorId())
+        || (role() == 'driver' && resource.data.driverId == request.auth.uid)
+      );
+      allow write: if false;
+    }
+
+    // Gate denials (Module 5): written only by the `denyEntry` callable. Admins and officers read their tenant's
+    // log; security writes through the callable and, like supervisors and drivers, has no direct access.
+    match /gateEvents/{id} {
+      allow read: if signedIn() && role() in ['admin', 'officer'] && sameTenant(resource.data);
+      allow write: if false;
+    }
+
+    // Penalties and suspensions: written only by the callables (issuePenalty, revokePenalty, verifyPenalty, the scheduled
+    // expiry). Admin and Safety Officer read the whole company; a supervisor only their own contractor's (queries carry
+    // the same tenantId + contractorId clauses). Officer, security and drivers have no direct access: the gate and the
+    // assignment screens go through the `checkEligibility` callable.
+    match /penalties/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && (
+        role() in ['admin', 'safety']
+        || (role() == 'supervisor' && contractorId() != null && resource.data.contractorId == contractorId())
+      );
+      allow write: if false;
+    }
+
+    // The company's own penalty type list (no seeded list). Callables write; the roles that work with penalties read.
+    match /penaltyTypes/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && role() in ['admin', 'safety', 'supervisor'];
+      allow write: if false;
+    }
+
+    // Inspections (trip clearance): written only by the callables (recordInspection, withdrawClearance) and the
+    // triggers that cancel a clearance. The Safety Officer and the admin (oversight, read only) read the whole company;
+    // a supervisor only their own contractor's (queries carry the same tenantId + contractorId clauses). Officer,
+    // security and drivers have no access: the gate reads the combined `checkEligibility` output.
+    match /inspections/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && (
+        role() in ['admin', 'safety']
+        || (role() == 'supervisor' && contractorId() != null && resource.data.contractorId == contractorId())
+      );
+      allow write: if false;
+    }
+
+    // Visit lifecycle: written only by the callables (checkInVisit, checkOutVisit, logUnloadingCheck, the dwell job). Admin,
+    // officer, Safety Officer and security read the company's visits; a supervisor only their own contractor's; the Yard
+    // Officer only visits still checked in (the query must say status == 'checked_in'). Drivers have no access: their
+    // check-in and check-out are done BY security. The Yard Officer's unloading check is a callable, never a client write.
+    match /visits/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && (
+        role() in ['admin', 'officer', 'safety', 'security']
+        || (role() == 'supervisor' && contractorId() != null && resource.data.contractorId == contractorId())
+        || (role() == 'yard' && resource.data.status == 'checked_in')
+      );
+      allow write: if false;
+    }
+
+    // Monthly gate passes: written only by the callables, the Module 4 triggers and the schedules. The Company Admin and the Safety
+    // Officer read the company's passes; a supervisor only their own contractor's (queries carry the same tenantId + contractorId
+    // clauses). Security never reads them (the check-in function consumes pass status), nor do officers, drivers or the Yard Officer.
+    match /gatePasses/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && (
+        role() in ['admin', 'safety']
+        || (role() == 'supervisor' && contractorId() != null && resource.data.contractorId == contractorId())
+      );
+      allow write: if false;
+    }
+
+    // Month-end qualification list: computed by the schedule or the admin's refresh, so the screen opens on stored data. Admin only.
+    match /monthEndQualification/{id} {
+      // `resource == null` lets the admin's getDoc of a list that was not computed yet resolve as "not found" (empty state)
+      // instead of permission-denied; a missing document leaks nothing, and the id carries the tenant for the caller's own read.
+      allow read: if signedIn() && role() == 'admin' && tenantId() != null
+        && (resource == null ? id.matches('^' + tenantId() + '_.*') : sameTenant(resource.data));
+      allow write: if false;
+      match /entries/{entryId} {
+        allow read: if signedIn() && role() == 'admin' && sameTenant(resource.data);
+        allow write: if false;
+      }
+    }
+
+    match /auditLog/{id} {
+      allow read: if signedIn() && role() == 'admin' && sameTenant(resource.data);
+      allow write: if false;
+    }
+
+    // Notifications (Module 7) are created by Cloud Functions only. A user reads their own (queries carry
+    // tenantId and recipientUid), and may change exactly one field on them: `readAt`, set to the server time.
+    match /notifications/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && resource.data.recipientUid == request.auth.uid;
+      allow update: if signedIn() && sameTenant(resource.data)
+        && resource.data.recipientUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
+        && request.resource.data.readAt == request.time;
+      allow create, delete: if false;
+    }
+
+    // Push device tokens: registerDevice / unregisterDevice callables and the push sender only.
+    match /users/{uid}/devices/{deviceId} {
+      allow read, write: if false;
+    }
+
+    // Rate limit windows: server only.
+    match /rateLimits/{id} {
+      allow read, write: if false;
+    }
+
+    // PIN sign-in (Module 12): `pinIndex/{hmac}` (the only trace of a PIN, as an HMAC) and `pinAttempts/{hashed ip|device}`
+    // (throttle counters) are Cloud Functions only. No client, admins included, can read, list or write either.
+    match /pinIndex/{id} {
+      allow read, write: if false;
+    }
+    match /pinAttempts/{id} {
+      allow read, write: if false;
+    }
+    // Sealed (encrypted) copy of each current PIN for "Show PIN": opened only by the `revealPin` function.
+    match /pinVault/{id} {
+      allow read, write: if false;
+    }
+
+    // Setup invites (Module 8): `setupInvites/{sha256hex(code)}`. Cloud Functions and operator scripts only; no client
+    // can read, list, create, update or delete one (not even an admin), so a hash can never be probed from a browser.
+    match /setupInvites/{id} {
+      allow read, write: if false;
+    }
+
+    // Platform operators (Module 9): `operators/{uid}` and `platformAuditLog/{id}` are Cloud Functions / operator scripts
+    // only. An operator token (role 'platform', platformAdmin, NO tenantId) matches no tenant rule above, and no client,
+    // tenant admins included, can read or write these two collections.
+    match /operators/{id} {
+      allow read, write: if false;
+    }
+    match /platformAuditLog/{id} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "extends": "../tsconfig.node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": [
+      "node"
+    ],
+    "composite": true,
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ES2023",
+      "DOM"
+    ]
+  },
+  "include": [
+    "./**/*.ts",
+    "../playwright.config.ts",
+    "../functions/src/tenants/tenantDefaults.ts",
+    "../functions/src/defaultChecklist.ts",
+    "../functions/src/defaultRejectionReasons.ts",
+    "../functions/src/defaultSla.ts",
+    "../functions/src/gates.ts",
+    "../functions/src/expiry.ts",
+    "../functions/src/vehicleTypes.ts",
+    "../functions/src/pin.ts"
+  ]
+}
