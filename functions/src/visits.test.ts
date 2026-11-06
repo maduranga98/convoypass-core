@@ -26,7 +26,7 @@ beforeEach(async () => {
   vw = makeVisitWorld(w)
   w.vehicles.set(VID, { tenantId: 'T1', contractorId: 'C1', plateNo: 'WP LJ-4821', plateKey: 'WPLJ4821', type: 'Tipper', assignedDriverIds: ['drv1', 'drv1b'], status: 'active' })
   w.vehicles.set(V2, { tenantId: 'T1', contractorId: 'C1', plateNo: 'CAB-1', plateKey: 'CAB1', type: 'Tipper', assignedDriverIds: ['drv1'], status: 'active' })
-  w.users.set('drv1b', { ...(w.users.get('drv1') as never), name: 'Second Driver' })
+  w.users.set('drv1b', { ...w.users.get('drv1')!, name: 'Second Driver' })
   // The first entry of the day is the pass check-in: both vehicles have a checked-in pass, so later entries (checkInVisit) can run.
   giveCheckedInPass(w, VID, 'drv1')
   giveCheckedInPass(w, V2, 'drv1')
@@ -64,7 +64,7 @@ describe('checkInVisit', () => {
 
   it('refuses a clashing visit id from another guard', async () => {
     await checkIn()
-    w.users.set('sec2', { ...(w.users.get('sec') as never) })
+    w.users.set('sec2', { ...w.users.get('sec')! })
     await rejects(checkIn(caller('sec2', 'security')), 'already-exists', 'request-conflict')
   })
 
@@ -129,7 +129,7 @@ describe('checkInVisit', () => {
   })
 
   it('uses the company’s gate time setting', async () => {
-    w.tenants.set('T1', { ...(w.tenants.get('T1') as never), dwellLimitHours: 2 })
+    w.tenants.set('T1', { ...w.tenants.get('T1')!, dwellLimitHours: 2 })
     giveCheckedInPass(w, VID, 'drv1', { checkedInAt: NOW_MS - 3 * 3_600_000, day: '20231115' })
     await rejects(checkIn(), 'failed-precondition', 'gate-time-over')
   })
@@ -137,14 +137,14 @@ describe('checkInVisit', () => {
   it('does not ask for another safety inspection on a later trip of the day', async () => {
     const { clearance: _c, ...base } = w.vehicles.get(VID) as never as Record<string, unknown> & { clearance?: unknown }
     void _c
-    w.vehicles.set('veh_cccccccccc', { ...(base as never), plateNo: 'NEW-1', plateKey: 'NEW1' }) // never inspected
+    w.vehicles.set('veh_cccccccccc', { ...base, plateNo: 'NEW-1', plateKey: 'NEW1' } as never) // never inspected
     giveCheckedInPass(w, 'veh_cccccccccc', 'drv1')
     givePass(vw.gatePasses, 'veh_cccccccccc', 'drv1')
     expect(await checkIn(sec(), { vehicleId: 'veh_cccccccccc' })).toMatchObject({ outcome: 'checked_in', plateNo: 'NEW-1' })
   })
 
   it('returns the eligibility output untouched when blocked, creates nothing and locks nobody', async () => {
-    w.vehicles.set(VID, { ...(w.vehicles.get(VID) as never), insuranceExpiry: '2000-01-01' })
+    w.vehicles.set(VID, { ...w.vehicles.get(VID)!, insuranceExpiry: '2000-01-01' })
     const res = await checkIn()
     expect(res).toMatchObject({ outcome: 'blocked', eligibility: { eligible: false, status: 'expired' } })
     expect(vw.visits.size).toBe(0)
@@ -153,22 +153,22 @@ describe('checkInVisit', () => {
   })
 
   it('shows an expired document as the reason, straight from the shared check', async () => {
-    w.vehicles.set(VID, { ...(w.vehicles.get(VID) as never), insuranceExpiry: '2000-01-01' })
+    w.vehicles.set(VID, { ...w.vehicles.get(VID)!, insuranceExpiry: '2000-01-01' })
     const res = await checkIn()
     expect(res).toMatchObject({ outcome: 'blocked', eligibility: { status: 'expired', vehicle: { documentStatus: 'expired' } } })
     expect(vw.visits.size).toBe(0)
   })
 
   it('refuses suspended vehicle and contractor, other roles, and unknown vehicles', async () => {
-    w.vehicles.set(VID, { ...(w.vehicles.get(VID) as never), status: 'suspended' })
+    w.vehicles.set(VID, { ...w.vehicles.get(VID)!, status: 'suspended' })
     await rejects(checkIn(), 'failed-precondition', 'vehicle-suspended')
-    w.vehicles.set(VID, { ...(w.vehicles.get(VID) as never), status: 'active', contractorId: 'CS' })
+    w.vehicles.set(VID, { ...w.vehicles.get(VID)!, status: 'active', contractorId: 'CS' })
     await rejects(checkIn(), 'failed-precondition', 'contractor-suspended')
     for (const c of [admin(), sup1(), yard(), drv1(), caller('officer', 'officer'), caller('safe1', 'safety')]) {
       await rejects(checkIn(c), 'permission-denied', 'forbidden')
     }
     await rejects(checkIn(sec(), { vehicleId: 'veh_zzzzzzzzzz' }), 'not-found', 'vehicle-not-found')
-    w.vehicles.set('veh_foreignaaa', { ...(w.vehicles.get(V2) as never), tenantId: 'T2' })
+    w.vehicles.set('veh_foreignaaa', { ...w.vehicles.get(V2)!, tenantId: 'T2' })
     await rejects(checkIn(sec(), { vehicleId: 'veh_foreignaaa' }), 'not-found', 'vehicle-not-found')
   })
 
@@ -200,20 +200,20 @@ describe('checkOutVisit', () => {
   })
 
   it('needs no eligibility: a vehicle that became blocked can still leave', async () => {
-    w.vehicles.set(VID, { ...(w.vehicles.get(VID) as never), status: 'suspended' })
-    w.drivers.set('drv1', { ...(w.drivers.get('drv1') as never), status: 'disabled' })
+    w.vehicles.set(VID, { ...w.vehicles.get(VID)!, status: 'suspended' })
+    w.drivers.set('drv1', { ...w.drivers.get('drv1')!, status: 'disabled' })
     expect((await out()).visitId).toBe(VIS)
   })
 
   it('is for security only, and another company cannot see the visit', async () => {
     for (const c of [admin(), yard(), sup1(), drv1(), caller('officer', 'officer')]) await rejects(out(c), 'permission-denied', 'forbidden')
-    w.users.set('secX', { ...(w.users.get('sec') as never), tenantId: 'T2' })
+    w.users.set('secX', { ...w.users.get('sec')!, tenantId: 'T2' })
     await rejects(out({ ...sec(), uid: 'secX', tenantId: 'T2' }), 'not-found', 'visit-not-found')
     await rejects(out(sec(), { visitId: 'vis_zzzzzzzzzz' }), 'not-found', 'visit-not-found')
   })
 
   it('leaves a lock held by a different visit alone', async () => {
-    w.drivers.set('drv1', { ...(w.drivers.get('drv1') as never), activeVisitId: 'vis_other00000' })
+    w.drivers.set('drv1', { ...w.drivers.get('drv1')!, activeVisitId: 'vis_other00000' })
     await out()
     expect(w.drivers.get('drv1')).toMatchObject({ driverOnDutyLock: true, activeVisitId: 'vis_other00000' })
   })
@@ -253,7 +253,7 @@ describe('logUnloadingCheck', () => {
     for (const c of [sec(), admin(), sup1(), drv1(), caller('safe1', 'safety')]) await rejects(log(c), 'permission-denied', 'forbidden')
     await checkOutVisit(w.deps, vw.port, sec(), { visitId: VIS, requestId: REQ2 })
     await rejects(log(), 'failed-precondition', 'visit-not-active')
-    w.users.set('yardX', { ...(w.users.get('yard1') as never), tenantId: 'T2' })
+    w.users.set('yardX', { ...w.users.get('yard1')!, tenantId: 'T2' })
     await rejects(log({ ...yard(), uid: 'yardX', tenantId: 'T2' }), 'not-found', 'visit-not-found')
   })
 })
