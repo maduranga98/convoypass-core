@@ -72,8 +72,8 @@ const PAIRS: [string, string, string, Kind][] = [
   ['warning', 'surface', 'Warning icon', 'ui'],
   ['slate-500', 'surface', 'Unchecked control border', 'ui'],
   ['brand', 'surface', 'Switch / checkbox on', 'ui'],
-  ['on-solid', 'brand', 'Focus ring on the indigo bars', 'ui'],
-  ['accent', 'brand', 'Active item and badges on the indigo sidebar', 'ui'],
+  ['on-solid', 'brand', 'Focus ring on the navy bars', 'ui'],
+  ['accent', 'brand', 'Active item and badges on the navy sidebar', 'ui'],
 ]
 
 let failed = 0

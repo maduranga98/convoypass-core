@@ -4,14 +4,14 @@
   --font-sans: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
 
   /*
-   * ConvoyPass brand palette (indigo primary, slate neutrals, emerald cleared/approved, amber warnings, red violations). Components use these names only (bg-brand, text-danger-strong, ...); never a raw hex or a
+   * ConvoyPass brand palette (navy primary, amber accent, green success, orange warning, red danger, Tailwind slate neutrals). Components use these names only (bg-brand, text-danger-strong, ...); never a raw hex or a
    * Tailwind colour scale. Every text/background pair below is checked against WCAG 2.1 AA by `npm run contrast`
    * (scripts/check-contrast.ts), so change a value and the check tells you whether the pairing still holds.
    */
 
-  /* Indigo: primary buttons, sidebars and top bars, selected states. Text never uses it; text is `ink`. */
-  --color-brand: #4338ca;
-  --color-brand-hover: #3730a3;
+  /* Navy: primary buttons, sidebars and top bars, selected states. Text never uses it; text is `ink`. */
+  --color-brand: #0f1e3c;
+  --color-brand-hover: #1e3a5f;
 
   /* Slate navy: body text, headings and text on amber (= slate-900). */
   --color-ink: #0f172a;
@@ -20,16 +20,16 @@
    * Accent amber: highlights (active navigation, selection, unread dot, "pending" status). Amber is too light for white
    * text and for text on white, so text on accent is always ink charcoal and amber is never used as text colour.
    */
-  --color-accent: #f59e0b;
-  --color-accent-hover: #d97706;
+  --color-accent: #f5a623;
+  --color-accent-hover: #fdb94e;
   --color-accent-soft: #fef3c7;
 
   /* Status colours. Base = icons, borders, large fills. `-strong` = text on light surfaces and fills that carry white text. */
-  --color-success: #059669;
-  --color-success-strong: #047857;
-  --color-success-hover: #065f46;
-  --color-success-soft: #ecfdf5;
-  --color-success-ink: #064e3b;
+  --color-success: #16a34a;
+  --color-success-strong: #15803d;
+  --color-success-hover: #166534;
+  --color-success-soft: #f0fdf4;
+  --color-success-ink: #14532d;
 
   --color-warning: #d97706;
   --color-warning-strong: #b45309;
