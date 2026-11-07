@@ -4,17 +4,17 @@
   --font-sans: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
 
   /*
-   * ConvoyPass brand palette. Components use these names only (bg-brand, text-danger-strong, ...); never a raw hex or a
+   * ConvoyPass brand palette (indigo primary, slate neutrals, emerald cleared/approved, amber warnings, red violations). Components use these names only (bg-brand, text-danger-strong, ...); never a raw hex or a
    * Tailwind colour scale. Every text/background pair below is checked against WCAG 2.1 AA by `npm run contrast`
    * (scripts/check-contrast.ts), so change a value and the check tells you whether the pairing still holds.
    */
 
-  /* Company red: primary buttons, sidebars and top bars, selected states. Text never uses it; text is `ink`. */
-  --color-brand: #a81d27;
-  --color-brand-hover: #861820;
+  /* Indigo: primary buttons, sidebars and top bars, selected states. Text never uses it; text is `ink`. */
+  --color-brand: #4338ca;
+  --color-brand-hover: #3730a3;
 
-  /* Charcoal grey: body text, headings and text on amber (= slate-900). */
-  --color-ink: #171717;
+  /* Slate navy: body text, headings and text on amber (= slate-900). */
+  --color-ink: #0f172a;
 
   /*
    * Accent amber: highlights (active navigation, selection, unread dot, "pending" status). Amber is too light for white
@@ -25,11 +25,11 @@
   --color-accent-soft: #fef3c7;
 
   /* Status colours. Base = icons, borders, large fills. `-strong` = text on light surfaces and fills that carry white text. */
-  --color-success: #16a34a;
-  --color-success-strong: #15803d;
-  --color-success-hover: #166534;
-  --color-success-soft: #f0fdf4;
-  --color-success-ink: #14532d;
+  --color-success: #059669;
+  --color-success-strong: #047857;
+  --color-success-hover: #065f46;
+  --color-success-soft: #ecfdf5;
+  --color-success-ink: #064e3b;
 
   --color-warning: #d97706;
   --color-warning-strong: #b45309;
@@ -45,21 +45,21 @@
   /* Surfaces and the colour of text/icons that sit on a solid brand/status fill; focus ring; modal and camera scrims. */
   --color-surface: #ffffff;
   --color-on-solid: #ffffff;
-  --color-focus: #171717;
+  --color-focus: #0f172a;
   --color-scrim: #000000;
 
   /* Slate neutrals (identical to Tailwind's defaults, declared here so the whole palette lives in one place). */
-  --color-slate-50: #fafafa;
-  --color-slate-100: #f5f5f5;
-  --color-slate-200: #e5e5e5;
-  --color-slate-300: #d4d4d4;
-  --color-slate-400: #a3a3a3;
-  --color-slate-500: #737373;
-  --color-slate-600: #525252;
-  --color-slate-700: #404040;
-  --color-slate-800: #262626;
-  --color-slate-900: #171717;
-  --color-slate-950: #0a0a0a;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
 
   /* A short sideways shake for a PIN that did not work (only with motion allowed: `motion-safe:animate-shake`). */
   --animate-shake: shake 0.4s ease-in-out;
