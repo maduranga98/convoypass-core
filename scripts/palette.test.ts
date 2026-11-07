@@ -35,7 +35,7 @@ describe('brand palette', () => {
 
   it('defines the brand colours', () => {
     const css = readFileSync(join(SRC, 'index.css'), 'utf8').toLowerCase()
-    for (const [name, hex] of [['brand', '#4338ca'], ['ink', '#0f172a'], ['accent', '#f59e0b'], ['success', '#059669'], ['warning', '#d97706'], ['danger', '#dc2626']]) {
+    for (const [name, hex] of [['brand', '#0f1e3c'], ['ink', '#0f172a'], ['accent', '#f5a623'], ['success', '#16a34a'], ['warning', '#d97706'], ['danger', '#dc2626']]) {
       expect(css).toContain(`--color-${name}: ${hex}`)
     }
   })
