@@ -1168,6 +1168,19 @@ export const strings = {
     'gate-pass-exists': 'A blocked pass already exists. Reactivate it instead.',
     'session-expired': 'Please enter your PIN again.',
     'signup-disabled': 'Super admin signup is turned off.',
+    'plan-limit-reached': 'The monthly visitor pass limit of your plan is reached.',
+    'visitor-not-found': 'That visitor no longer exists.',
+    'visitor-pass-not-found': 'No visitor pass matches that code.',
+    'visitor-pass-exists': 'That visitor pass already exists.',
+    'pass-not-active': 'This pass is not active.',
+    'pass-not-yet-valid': 'This pass is not valid yet.',
+    'pass-revoked': 'This pass was cancelled.',
+    'pass-already-checked-in': 'This visitor is already inside.',
+    'pass-already-checked-out': 'This pass was already used.',
+    'wrong-site': 'This pass is for another gate.',
+    'invalid-window': 'Those dates are not allowed. Choose today or later, for up to 30 days.',
+    'code-invalid': 'That is not a pass code.',
+    'photo-missing': 'The photo did not upload. Try again.',
     'target-required': 'Choose a driver or a vehicle.',
     'target-mismatch': 'The driver and the vehicle belong to different contractors.',
     'penalty-type-not-found': 'That penalty type no longer exists.',
@@ -1481,6 +1494,8 @@ export const strings = {
   /** Module 12: the in-app QR scanner, shared by drivers and security. */
   scanner: {
     title: 'Scan vehicle QR',
+    visitorTitle: 'SCAN VISITOR PASS',
+    notVisitorPass: 'Not a visitor pass',
     hint: 'Point the camera at the sticker on the vehicle.',
     close: 'Close scanner',
     torchOn: 'Light on',
@@ -2550,5 +2565,10 @@ export const strings = {
         ].join('\n'),
     },
     forbiddenOperator: 'Operator accounts cannot open client workspace pages.',
+  },
+  // Visitor / pedestrian passes: only the words other screens need. The rest is in `visitorStrings.ts` (kept out of the shell).
+  visitors: {
+    nav: { visitors: 'Visitors', onSite: 'On site', onSiteShort: 'On site' },
+    toggle: { label: 'What is arriving?', vehicle: 'Vehicle', visitor: 'Visitor' },
   },
 } as const

@@ -169,6 +169,33 @@ Enforcement: clients only read `gatePasses` (Firestore rules: admin and Safety O
 
 **Rollout note.** The gate pass is enforced for every company from the day this ships. A company with no passes yet refuses every check-in until the admin opens *Monthly passes > Month-end list*, chooses *This month*, refreshes and issues.
 
+## Visitor / pedestrian passes
+
+A lightweight pass for people who enter on foot (auditors, inspectors, delivery staff without a vehicle, office guests). It runs beside the vehicle lifecycle and shares none of its rules: no vehicle, driver, licence, insurance, penalty or monthly-pass logic. Three collections, all **read only for clients** (every write is a callable): `visitors` (the person: name, phone, id number, employer, photo path), `visitorPasses` (one pass: code, site, validity window, status, check-in and check-out, a copy of the name, host, purpose and photo path so the gate never needs the visitor record) and `visitorPassUsage/{tenantId}_{YYYYMM}` (the monthly count the plan cap reads). `visitorPassCodes` guards code uniqueness per company (server only).
+
+| Action | Admin | Supervisor | Safety | Officer | Security | Driver | Yard |
+|---|---|---|---|---|---|---|---|
+| `visitorPass.issue` / `visitor.manage` / `visitorPass.revoke` | yes | yes (the whole company's visitors, not one contractor's) | no | no | no | no | no |
+| `visitorPass.view` (list, search, usage) | yes | yes | no | no | no | no | no |
+| `visitorPass.lookup` (the gate view and the QR link, never phone or id number) | yes | yes | yes (read only) | no | yes | no | no |
+| `visitorPass.checkIn` / `visitorPass.checkOut` | no | no | no | no | yes | no | no |
+| `visitorPass.onSite` (who is inside now, vehicles and visitors) | yes | yes (vehicles of their own contractor) | yes | no | yes (the visitors-inside list) | no | yes (inside only) |
+| `visitor.settings` (longest stay, default validity) | yes | no | no | no | no | no | no |
+
+**Passes and states.** `active` -> `checked_in` -> `checked_out` (final), or `expired` (a schedule flips an `active` pass past `validUntil`; a pass the schedule has not reached yet still reads as expired, because `entryCheck` compares the end instant) or `revoked` (only an `active` pass; a visitor already inside is checked out by Security instead). One entry and one exit per pass: a visitor who comes back another day needs a new pass (a returning visitor's record is reused, but each pass counts toward the cap).
+
+**Validity.** `validFrom` / `validUntil` are sent as `YYYY-MM-DD` in the company timezone and stored as instants (first millisecond of the first day, last millisecond of the last day). Default: today for `tenants.visitorSettings.defaultValidDays` (default 1, admin 1-30). A pass cannot start in the past, ends no earlier than it starts, spans at most 30 days and starts at most 60 days ahead.
+
+**Plan cap.** `tenants.plan`: `starter` allows 20 new passes per calendar month (company timezone); `growth` and `compliance` are unlimited; no plan recorded (every workspace that predates plans) is not capped. The count is read and raised in the same transaction that creates the pass, so two concurrent issues cannot both take the last place; a retry of an issue (same `passId`) returns the stored pass and counts nothing. Revoking or expiring a pass does not give the place back. There is no billing in the app: the operator records the plan with `npm run tenant:plan -- --env <env> --tenant <ten_…> --plan <starter|growth|compliance|none>` (audited in `platformAuditLog` as `workspace.planChanged`).
+
+**Gate (Security).** `lookupVisitorPass` (by code or pass id) shows the name, company, host, purpose, photo and validity; `checkInVisitorPass({ code | passId, siteId, requestId })` and `checkOutVisitorPass({ passId, requestId })` do the rest. The guard is the caller's uid and the time is the server's. Check-in refuses, each with its own `details.reason`: `pass-expired`, `pass-not-yet-valid`, `pass-revoked`, `pass-already-checked-in` (with who and when), `pass-already-checked-out`, `wrong-site` (the pass was issued for another gate; `siteId` is a gate id from `tenants.gates`). Both calls are idempotent on `requestId`. A check-out is always accepted, even after the validity end or the stay limit. There is no offline queue for visitors (a lookup needs the network).
+
+**Time inside.** Each pass copies `maxDwellMinutes` (`tenants.visitorSettings.maxDwellMinutes`, default 480, admin 30-1440) when it is issued. `expireVisitorPasses` (every 15 minutes, beside the vehicle dwell job) sets `dwellWarning` on a visitor still inside past it. A flag only: nothing is closed or blocked, and the On-site screen, the visitor list ("Over time") and the gate compute it live against the clock.
+
+**Privacy.** `visitors` (phone, id number) is read by the admin and supervisors only; security, the Safety Officer and the Yard Officer read `visitorPasses` (name, employer, host, purpose, photo path, times). The visitor photo is a Storage path (`tenants/<tenant>/visitors/<id>.jpg`), never a URL; the browser uploads it before `issueVisitorPass` / `updateVisitor`, which re-verifies the file (JPEG signature, size).
+
+**Decisions to confirm with the client.** Supervisors read and issue for the whole company, as specified, although a ConvoyPass supervisor otherwise sees one contractor only: confirm that contractor staff may see every visitor's name and phone. `siteId` is a gate id (there is no separate "site" concept). A visitor pass is single entry (the spec's status list has no way back from `checked_out`).
+
 ## Areas (route guards)
 
 | Area | Who may open it |
@@ -181,6 +208,8 @@ Enforcement: clients only read `gatePasses` (Firestore rules: admin and Safety O
 | `/security` | Security |
 | `/yard` | Yard Officer |
 | `/driver` | Driver |
+
+`/vp/:code` (the address in a visitor pass QR) sits behind sign-in only, like `/v/:vehicleId`: Security gets Check in / Check out; admin, supervisor and Safety Officer read it; everyone else gets the 403 page.
 
 Anyone else gets the 403 page; a signed-out visitor goes to the matching sign-in screen.
 

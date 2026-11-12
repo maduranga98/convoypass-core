@@ -40,6 +40,8 @@ import * as gatePasses from './gatePasses.js'
 import { gatePassPort } from './gatePassPort.js'
 import * as visits from './visits.js'
 import { visitPort } from './visitsPort.js'
+import * as visitors from './visitors.js'
+import { visitorPort } from './visitorsPort.js'
 
 initializeApp()
 // `enforceAppCheck` applies to callables only (ENFORCE_APP_CHECK=true in functions/.env.<alias>, never in the emulator).
@@ -125,6 +127,18 @@ export const checkInVisit = callable('checkInVisit', (d, c, data) => visits.chec
 export const checkOutVisit = callable('checkOutVisit', (d, c, data) => visits.checkOutVisit(d, visitPort(), c, data), { warm: true })
 export const logUnloadingCheck = callable('logUnloadingCheck', (d, c, data) => visits.logUnloadingCheck(d, visitPort(), c, data))
 export const getDailySummary = callable('getDailySummary', (d, c) => visits.getDailySummary(d, visitPort(), c))
+
+// Visitor / pedestrian passes (people on foot): issue, edit, revoke (admin, supervisor); check-in and check-out (Security); the
+// lookup the gate and the read-only pass view use. Clients only read `visitors`, `visitorPasses` and `visitorPassUsage`.
+// The expiry and overstay flag run from visitorSchedules.ts.
+export const issueVisitorPass = callable('issueVisitorPass', (d, c, data) => visitors.issueVisitorPass(d, visitorPort(), c, data, APP_BASE_URL), { rateLimit: true })
+export const updateVisitor = callable('updateVisitor', (d, c, data) => visitors.updateVisitor(d, visitorPort(), c, data))
+export const revokeVisitorPass = callable('revokeVisitorPass', (d, c, data) => visitors.revokeVisitorPass(d, visitorPort(), c, data))
+export const lookupVisitorPass = callable('lookupVisitorPass', (d, c, data) => visitors.lookupVisitorPass(d, visitorPort(), c, data), { rateLimit: true })
+export const checkInVisitorPass = callable('checkInVisitorPass', (d, c, data) => visitors.checkInVisitorPass(d, visitorPort(), c, data), { warm: true })
+export const checkOutVisitorPass = callable('checkOutVisitorPass', (d, c, data) => visitors.checkOutVisitorPass(d, visitorPort(), c, data), { warm: true })
+export const updateVisitorSettings = callable('updateVisitorSettings', (d, c, data) => visitors.updateVisitorSettings(d, visitorPort(), c, data))
+export { expireVisitorPassesScheduled as expireVisitorPasses } from './visitorSchedules.js'
 
 // Monthly gate pass (the last gate of the eligibility chain). Clients only read `gatePasses` and `monthEndQualification`. System blocks
 // come from the inspection triggers above; expiry and the optional auto-issue from the schedules in gatePassSchedules.ts.

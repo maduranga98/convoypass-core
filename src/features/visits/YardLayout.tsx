@@ -1,4 +1,4 @@
-import { ChartNoAxesColumn, LogOut, UserRound } from 'lucide-react'
+import { ChartNoAxesColumn, LocateFixed, LogOut, UserRound } from 'lucide-react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { BrandMark } from '@/components/BrandMark'
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary'
@@ -34,6 +34,14 @@ export default function YardLayout() {
           >
             <ChartNoAxesColumn aria-hidden className="size-5" />
             {t.summary}
+          </NavLink>
+          <NavLink
+            to="/yard/on-site"
+            aria-label={strings.visitors.nav.onSite}
+            className={({ isActive }) => cn('inline-flex h-12 items-center gap-2 rounded-full px-3 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus', isActive ? 'bg-accent text-ink' : 'text-ink hover:bg-slate-100')}
+          >
+            <LocateFixed aria-hidden className="size-5" />
+            <span className="hidden sm:inline">{strings.visitors.nav.onSite}</span>
           </NavLink>
           <Link to="/settings" aria-label={t.account} title={t.account} className={iconButton}>
             <UserRound aria-hidden className="size-6" />

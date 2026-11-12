@@ -5,6 +5,7 @@ import { appBase } from '@/lib/appUrl'
 import { cn } from '@/lib/cn'
 import { strings } from '@/lib/strings'
 import { parseVehicleQr } from '@/lib/vehicleQr'
+import { parseVisitorQr } from '@/lib/visitorLogic'
 
 const t = strings.scanner
 
@@ -54,9 +55,13 @@ function stopTracks(el: HTMLElement | null): void {
  * anything that is not ours shows "Not a ConvoyPass QR code" and scanning continues. On a valid code the camera is
  * stopped first, then `onVehicle` is called. All tracks are stopped on unmount.
  */
-export function QrScanner({ onVehicle, onClose }: { onVehicle: (vehicleId: string) => void; onClose: () => void }) {
+export function QrScanner(props: ({ onVehicle: (vehicleId: string) => void; onVisitorPass?: undefined } | { onVisitorPass: (code: string) => void; onVehicle?: undefined }) & { onClose: () => void }) {
+  const { onClose } = props
+  // The same scanner serves the vehicle QR (default) and the visitor pass QR (Security's Visitor mode): one camera screen.
+  const visitorMode = props.onVisitorPass !== undefined
+  const onFound = visitorMode ? props.onVisitorPass : props.onVehicle
   const hostRef = useRef<HTMLDivElement>(null)
-  const onVehicleRef = useRef(onVehicle)
+  const onFoundRef = useRef(onFound)
   // The camera API exists only in secure contexts (https or localhost).
   const [phase, setPhase] = useState<Phase>(() =>
     !(window.isSecureContext && typeof navigator.mediaDevices?.getUserMedia === 'function') ? 'insecure' : explained() ? 'starting' : 'explain',
@@ -70,7 +75,7 @@ export function QrScanner({ onVehicle, onClose }: { onVehicle: (vehicleId: strin
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
-    onVehicleRef.current = onVehicle
+    onFoundRef.current = onFound
   })
 
   useEffect(() => {
@@ -112,15 +117,16 @@ export function QrScanner({ onVehicle, onClose }: { onVehicle: (vehicleId: strin
       const now = Date.now()
       if (done || (text === last.text && now - last.at < REPEAT_MS)) return
       last = { text, at: now }
-      const vehicleId = parseVehicleQr(text, appBase?.url ?? window.location.origin)
-      if (!vehicleId) {
-        setMessage(t.notOurs)
+      const base = appBase?.url ?? window.location.origin
+      const found = visitorMode ? parseVisitorQr(text, base) : parseVehicleQr(text, base)
+      if (!found) {
+        setMessage(visitorMode ? t.notVisitorPass : t.notOurs)
         clearTimeout(clearMsg)
         clearMsg = setTimeout(() => setMessage(null), MESSAGE_MS)
         return
       }
       done = true
-      void stop().then(() => onVehicleRef.current(vehicleId))
+      void stop().then(() => onFoundRef.current(found))
     }
 
     const started = scanner
@@ -161,7 +167,7 @@ export function QrScanner({ onVehicle, onClose }: { onVehicle: (vehicleId: strin
       void started.finally(() => stop().finally(() => el.remove()))
       stopTracks(el)
     }
-  }, [attempt, insecure, waiting])
+  }, [attempt, insecure, waiting, visitorMode])
 
   const toggleTorch = async () => {
     const cap = torchRef.current
@@ -184,7 +190,7 @@ export function QrScanner({ onVehicle, onClose }: { onVehicle: (vehicleId: strin
   const steps = ios ? { title: t.iphoneTitle, items: t.iphoneSteps } : { title: t.androidTitle, items: t.androidSteps }
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={t.title} className="fixed inset-0 z-50 flex flex-col bg-scrim text-on-solid">
+    <div role="dialog" aria-modal="true" aria-label={visitorMode ? t.visitorTitle : t.title} className="fixed inset-0 z-50 flex flex-col bg-scrim text-on-solid">
       <div className="flex h-16 shrink-0 items-center justify-between gap-2 px-3">
         <button
           type="button"
@@ -194,7 +200,7 @@ export function QrScanner({ onVehicle, onClose }: { onVehicle: (vehicleId: strin
         >
           <X aria-hidden className="size-7" />
         </button>
-        <p className="text-lg font-bold">{t.title}</p>
+        <p className="text-lg font-bold">{visitorMode ? t.visitorTitle : t.title}</p>
         {torch.supported ? (
           <button
             type="button"

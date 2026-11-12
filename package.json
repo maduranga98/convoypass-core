@@ -22,6 +22,7 @@
     "create-tenant": "tsx scripts/create-tenant.ts",
     "reset-admin": "tsx scripts/reset-admin.ts",
     "admin:reset": "tsx scripts/reset-admin.ts",
+    "tenant:plan": "tsx scripts/tenant-plan.ts",
     "migrate:pin-login": "tsx scripts/migrate-pin-login.ts",
     "superadmin:create": "tsx scripts/create-operator.ts",
     "superadmin:disable": "tsx scripts/disable-operator.ts",

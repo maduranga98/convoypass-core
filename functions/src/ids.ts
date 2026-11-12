@@ -21,3 +21,12 @@ export const INSPECTION_ID_PATTERN = /^insp_[a-z0-9]{10}$/
 
 /** The visit created by a pass check-in has a deterministic id, so a retried or replayed check-in finds the same visit. */
 export const visitIdForRequest = (requestId: string): string => `vis_${requestId.toLowerCase().replace(/[^a-z0-9]/g, '').padEnd(10, '0').slice(0, 10)}`
+
+/** A visitor id is chosen by the browser (the photo is uploaded to its own path first); the server checks the shape and uses `create()`. */
+export const VISITOR_ID_PATTERN = /^vst_[a-z0-9]{10}$/
+
+/** A visitor pass id is chosen by the browser, so a retried issue is recognised and neither creates a second pass nor counts twice. */
+export const VISITOR_PASS_ID_PATTERN = /^vsp_[a-z0-9]{10}$/
+
+/** The only Storage path a visitor photo may live at; Storage rules and `issueVisitorPass` accept exactly this. */
+export const visitorPhotoPath = (tenantId: string, visitorId: string): string => `tenants/${tenantId}/visitors/${visitorId}.jpg`

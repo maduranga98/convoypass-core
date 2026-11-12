@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // Deny by default. Roles/tenant come ONLY from custom claims (set by Cloud Functions).
-// `operators`, `platformAuditLog`, `setupInvites` (no client access at all), `users`, `tenants`, `auditLog`, `vehicles`, `drivers`, `vehiclePlates`, `passes`, `gateEvents`, `penalties`, `penaltyTypes`, `inspections`, `visits`, `gatePasses` and `monthEndQualification` are never client-writable
+// `operators`, `platformAuditLog`, `setupInvites` (no client access at all), `users`, `tenants`, `auditLog`, `vehicles`, `drivers`, `vehiclePlates`, `passes`, `gateEvents`, `penalties`, `penaltyTypes`, `inspections`, `visits`, `gatePasses`, `monthEndQualification`, `visitors`, `visitorPasses` and `visitorPassUsage` are never client-writable
 // (`notifications` accept one client write: `readAt` on your own); `users/*/devices` and `rateLimits` are closed;
 // Cloud Functions use the Admin SDK. `contractors` accept admin writes to descriptive fields only.
 service cloud.firestore {
@@ -166,6 +166,36 @@ service cloud.firestore {
         || (role() == 'yard' && resource.data.status == 'checked_in')
       );
       allow write: if false;
+    }
+
+    // Visitor / pedestrian passes: written only by the callables (issueVisitorPass, updateVisitor, revokeVisitorPass,
+    // checkInVisitorPass, checkOutVisitorPass) and the expiry schedule. `visitors` holds personal details (phone, id number),
+    // so only the admin and supervisors read it. `visitorPasses` carries just what the gate and the on-site list show (name,
+    // employer, host, purpose, photo path, times): the admin, supervisors, the Safety Officer and security read the company's;
+    // the Yard Officer only visitors who are still checked in (the query must say status == 'checked_in'). Drivers and
+    // officers have no access. Supervisors see the whole company's visitors (not one contractor's): a visitor belongs to the
+    // company, not to a contractor. The usage counter is read by the admin and supervisors for the plan indicator.
+    match /visitors/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && role() in ['admin', 'supervisor'];
+      allow write: if false;
+    }
+    match /visitorPasses/{id} {
+      allow read: if signedIn() && sameTenant(resource.data) && (
+        role() in ['admin', 'supervisor', 'safety', 'security']
+        || (role() == 'yard' && resource.data.status == 'checked_in')
+      );
+      allow write: if false;
+    }
+    match /visitorPassUsage/{id} {
+      // `resource == null` lets the first read of a month with no pass yet resolve as "not found" (count 0) instead of
+      // permission-denied; the id carries the tenant for the caller's own read.
+      allow read: if signedIn() && role() in ['admin', 'supervisor'] && tenantId() != null
+        && (resource == null ? id.matches('^' + tenantId() + '_.*') : sameTenant(resource.data));
+      allow write: if false;
+    }
+    // Pass code uniqueness guards: server only.
+    match /visitorPassCodes/{id} {
+      allow read, write: if false;
     }
 
     // Monthly gate passes: written only by the callables, the Module 4 triggers and the schedules. The Company Admin and the Safety

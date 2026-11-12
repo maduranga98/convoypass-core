@@ -10,6 +10,7 @@ import type { RecordInspectionPayload } from '@/types/inspections'
 import type { CheckInVisitPayload, CheckInVisitResult, CheckOutVisitPayload, CheckOutVisitResult, DailySummary, UnloadingCheckPayload } from '@/types/visits'
 import type { EligibilityResult, IssuePenaltyPayload } from '@/types/penalties'
 import type { IssueGatePassesPayload, IssueGatePassesResult, QualificationMetaResult } from '@/types/gatePasses'
+import type { IssueVisitorPassPayload, IssueVisitorPassResult, VisitorMovementResult, VisitorPassView } from '@/types/visitors'
 import type { ReportRequest, ReportResult, TrendResult } from '@/types/reports'
 import type { SlaSettings } from './defaultSla'
 import type { CreatedInvite, InviteRow, InviteStatus, OperatorOverview, TenantRow, WorkspaceCredentials, WorkspaceDetail } from '@/types/platform'
@@ -223,3 +224,16 @@ export const checkInVisit = call<CheckInVisitPayload, CheckInVisitResult>('check
 export const checkOutVisit = call<CheckOutVisitPayload, CheckOutVisitResult>('checkOutVisit')
 export const logUnloadingCheck = call<UnloadingCheckPayload, { visitId: string; at: number }>('logUnloadingCheck')
 export const getDailySummary = call<Record<string, never>, DailySummary>('getDailySummary')
+
+// ---- Visitor / pedestrian passes ----------------------------------------------------------------------
+export const issueVisitorPass = call<IssueVisitorPassPayload, IssueVisitorPassResult>('issueVisitorPass', 30_000)
+export const updateVisitor = call<
+  { visitorId: string; fullName?: string; phone?: string; idNumber?: string | null; organization?: string | null; hasPhoto?: boolean },
+  { ok: true }
+>('updateVisitor')
+export const revokeVisitorPass = call<{ passId: string; reason?: string }, { ok: true }>('revokeVisitorPass')
+/** By the scanned or typed code, or by pass id. Returns what the gate shows: never the phone or the id number. */
+export const lookupVisitorPass = call<{ code: string } | { passId: string }, VisitorPassView>('lookupVisitorPass', 20_000)
+export const checkInVisitorPass = call<{ code?: string; passId?: string; siteId: string; requestId: string }, VisitorMovementResult>('checkInVisitorPass', 20_000)
+export const checkOutVisitorPass = call<{ passId: string; requestId: string }, VisitorMovementResult>('checkOutVisitorPass', 20_000)
+export const updateVisitorSettings = call<{ maxDwellMinutes?: number; defaultValidDays?: number }, { ok: true }>('updateVisitorSettings')

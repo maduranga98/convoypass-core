@@ -1,6 +1,6 @@
-import { ChartNoAxesColumn, CircleCheckBig, CloudUpload, DoorOpen, LogIn, RefreshCw, ScanLine, Search } from 'lucide-react'
+import { ChartNoAxesColumn, CircleCheckBig, CloudUpload, DoorOpen, Footprints, LogIn, RefreshCw, ScanLine, Search, Truck } from 'lucide-react'
 import { lazy, Suspense, useEffect, useId, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ListSkeleton } from '@/components/ui/Skeleton'
 import { useSession } from '@/features/auth/useAuth'
@@ -68,8 +68,53 @@ function Card({ to, plateNo, sub, line, chip }: { to: string; plateNo: string; s
   )
 }
 
-/** `/security`: scan, search by plate, and today's live lists. Prefetches what the gate needs to work offline. */
+const VisitorGate = lazy(() => import('@/features/visitors/VisitorGate'))
+
+/**
+ * `/security`: one screen, two modes. Vehicle (default) scans a vehicle QR; Visitor scans a visitor pass QR or takes its code.
+ * The mode lives in the address (`?mode=visitor`), so Back and the visitor QR link land where the guard was.
+ */
 export default function GateHome() {
+  const [params, setParams] = useSearchParams()
+  const mode = params.get('mode') === 'visitor' ? 'visitor' : 'vehicle'
+  const choose = (next: 'vehicle' | 'visitor') => setParams(next === 'visitor' ? { mode: 'visitor' } : {}, { replace: true })
+  return (
+    <>
+      <div className="mx-auto max-w-3xl px-4 pt-4">
+        <div role="group" aria-label={strings.visitors.toggle.label} className="grid grid-cols-2 gap-2">
+          {(['vehicle', 'visitor'] as const).map((m) => {
+            const Icon = m === 'vehicle' ? Truck : Footprints
+            return (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                onClick={() => choose(m)}
+                className={cn(
+                  'flex h-14 items-center justify-center gap-2 rounded-xl border-2 text-lg font-extrabold focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-focus',
+                  mode === m ? 'border-brand bg-brand text-on-solid' : 'border-slate-300 bg-surface text-ink',
+                )}
+              >
+                <Icon aria-hidden className="size-6" />
+                {strings.visitors.toggle[m]}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      {mode === 'visitor' ? (
+        <Suspense fallback={<div role="status" className="grid place-items-center p-8 text-lg font-semibold text-slate-700">{strings.common.loading}</div>}>
+          <VisitorGate />
+        </Suspense>
+      ) : (
+        <VehicleGate />
+      )}
+    </>
+  )
+}
+
+/** The vehicle mode: scan, search by plate, and today's live lists. Prefetches what the gate needs to work offline. */
+function VehicleGate() {
   const { uid } = useSession()
   const navigate = useNavigate()
   const location = useLocation()

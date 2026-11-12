@@ -1,4 +1,4 @@
-import { BadgeCheck, Building2, CalendarCheck, ChartNoAxesColumn, ClipboardList, FileBarChart, Footprints, GraduationCap, History, LayoutDashboard, LogOut, Menu, QrCode, Settings, ShieldAlert, Tags, Truck, UserRound, Users, X } from 'lucide-react'
+import { BadgeCheck, Building2, CalendarCheck, ChartNoAxesColumn, ClipboardList, FileBarChart, Footprints, GraduationCap, History, IdCard, LayoutDashboard, LocateFixed, LogOut, Menu, QrCode, Settings, ShieldAlert, Tags, Truck, UserRound, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
@@ -25,6 +25,8 @@ const navGroups: ReadonlyArray<{ label: string; items: readonly NavItem[] }> = [
     items: [
       { to: '/admin/passes', label: strings.admin.nav.passes, icon: ClipboardList },
       { to: '/admin/visits', label: strings.admin.nav.visits, icon: Footprints },
+      { to: '/admin/visitors', label: strings.visitors.nav.visitors, icon: IdCard },
+      { to: '/admin/on-site', label: strings.visitors.nav.onSite, icon: LocateFixed },
       { to: '/admin/gate-passes', label: strings.gatePasses.nav, icon: BadgeCheck, end: true },
       { to: '/admin/gate-passes/month-end', label: strings.gatePasses.navQualification, icon: CalendarCheck },
     ],

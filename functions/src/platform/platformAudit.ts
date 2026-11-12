@@ -12,6 +12,7 @@ export type PlatformAction =
   | 'operator.passwordReset'
   | 'operator.passwordChanged'
   | 'workspace.created'
+  | 'workspace.planChanged'
   | 'admin.created'
   | 'admin.credentialReset'
   | 'admin.updated'

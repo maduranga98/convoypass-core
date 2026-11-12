@@ -38,6 +38,10 @@ export interface Tenant {
   autoIssueGatePasses?: boolean
   /** Qualifications every driver must hold (valid one year each). Falls back to the defaults when absent. */
   qualificationTypes?: QualificationTypeDef[]
+  /** Visitor passes: `starter` caps new passes at 20 a month. Absent = not capped. Set by the operator. */
+  plan?: string
+  /** Visitor passes: longest stay (minutes) and default validity (days). Absent = 480 and 1. */
+  visitorSettings?: { maxDwellMinutes?: number; defaultValidDays?: number }
 }
 
 export interface UserDoc {

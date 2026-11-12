@@ -45,7 +45,10 @@ import {
   DailySummaryPage,
   UnloadingPage,
   VisitCheckOutPage,
+  OnSitePage,
   VisitDetailPage,
+  VisitorPassRoute,
+  VisitorsPage,
   VisitsPage,
   YardLayout,
   PrivacyPage,
@@ -116,6 +119,8 @@ export const router = createBrowserRouter([
           { path: '/settings', element: lazyEl(<UserSettingsPage />) },
           { path: '/change-password', element: lazyEl(<ChangePasswordPage />) },
           { path: '/v/:vehicleId', element: <VehicleRouteBoundary>{lazyEl(<VehicleRoute />)}</VehicleRouteBoundary> },
+          // The address in a visitor pass QR: Security checks the visitor in or out; admin, supervisor and Safety Officer read it.
+          { path: '/vp/:code', element: lazyEl(<VisitorPassRoute />) },
           {
             element: <RequireRole roles={rolesFor('area.admin')} />,
             children: [
@@ -138,6 +143,8 @@ export const router = createBrowserRouter([
                   { path: 'penalties/new', element: lazyEl(<IssuePenaltyPage listPath="/admin/penalties" typesPath="/admin/penalty-types" />) },
                   { path: 'penalty-types', element: lazyEl(<PenaltyTypesPage />) },
                   { path: 'reports', element: lazyEl(<ReportsPage />) },
+                  { path: 'visitors', element: lazyEl(<VisitorsPage viewer="admin" />) },
+                  { path: 'on-site', element: lazyEl(<OnSitePage viewer="admin" />) },
                   { path: 'visits', element: lazyEl(<VisitsPage scope="admin" />) },
                   { path: 'visits/:visitId', element: lazyEl(<VisitDetailPage scope="admin" />) },
                   { path: 'summary', element: lazyEl(<DailySummaryPage />) },
@@ -167,6 +174,8 @@ export const router = createBrowserRouter([
                   { path: 'daily', element: lazyEl(<SupervisorDaily />) },
                   { path: 'assign-drivers', element: lazyEl(<SupervisorAssignDrivers />) },
                   { path: 'penalties', element: lazyEl(<VerificationQueuePage />) },
+                  { path: 'visitors', element: lazyEl(<VisitorsPage viewer="supervisor" />) },
+                  { path: 'on-site', element: lazyEl(<OnSitePage viewer="supervisor" />) },
                   { path: 'visits', element: lazyEl(<VisitsPage scope="supervisor" />) },
                   { path: 'visits/:visitId', element: lazyEl(<VisitDetailPage scope="supervisor" />) },
                   { path: 'summary', element: lazyEl(<DailySummaryPage />) },
@@ -204,6 +213,7 @@ export const router = createBrowserRouter([
                   { path: 'penalties/new', element: lazyEl(<IssuePenaltyPage listPath="/safety" typesPath={null} />) },
                   { path: 'inspections/new', element: lazyEl(<RecordInspectionPage />) },
                   { path: 'reinspection', element: lazyEl(<ReinspectionPage />) },
+                  { path: 'on-site', element: lazyEl(<OnSitePage viewer="safety" />) },
                   { path: 'summary', element: lazyEl(<DailySummaryPage />) },
                 ],
               },
@@ -237,6 +247,7 @@ export const router = createBrowserRouter([
                 element: lazyEl(<YardLayout />),
                 children: [
                   { index: true, element: lazyEl(<UnloadingPage />) },
+                  { path: 'on-site', element: lazyEl(<OnSitePage viewer="yard" />) },
                   { path: 'summary', element: lazyEl(<DailySummaryPage backTo="/yard" />) },
                 ],
               },

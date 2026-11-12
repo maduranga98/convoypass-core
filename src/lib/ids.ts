@@ -20,3 +20,12 @@ export const newInspectionId = (): string => `insp_${randomSuffix()}`
 
 /** `vis_` + 10 random chars [a-z0-9] (crypto). Chosen by the browser so a retried visit check-in is recognised and never creates a second visit. */
 export const newVisitId = (): string => `vis_${randomSuffix()}`
+
+/** `vst_` + 10 random chars [a-z0-9] (crypto). Chosen by the browser so a visitor photo can be uploaded to its own path first. */
+export const newVisitorId = (): string => `vst_${randomSuffix()}`
+
+/** `vsp_` + 10 random chars [a-z0-9] (crypto). Chosen by the browser so a retried issue never creates (or counts) a second pass. */
+export const newVisitorPassId = (): string => `vsp_${randomSuffix()}`
+
+/** The only Storage path a visitor photo may live at. */
+export const visitorPhotoPath = (tenantId: string, visitorId: string): string => `tenants/${tenantId}/visitors/${visitorId}.jpg`

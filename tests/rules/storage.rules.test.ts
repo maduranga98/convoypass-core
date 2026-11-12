@@ -22,6 +22,8 @@ const evidence = (tenant: string, vehicleId: string, attempt: number | string, f
 
 const penaltyPhoto = (tenant: string, pid: string, file = 'evidence.jpg') => `tenants/${tenant}/penalties/${pid}/${file}`
 
+const visitorPhoto = (tenant: string, vid: string) => `tenants/${tenant}/visitors/${vid}.jpg`
+
 const jpeg = (bytes = 1000) => new Uint8Array(bytes).fill(7)
 const JPEG = { contentType: 'image/jpeg' }
 
@@ -52,6 +54,8 @@ beforeAll(async () => {
     for (const p of [evidence(A, 'veh_open', 1, 'gps.jpg'), evidence(A, 'veh_other', 1, 'gps.jpg'), evidence(A, 'veh_sub', 1, 'gps.jpg'), evidence(B, 'veh_b', 1, 'gps.jpg')]) {
       await uploadBytes(ref(storage, p), jpeg(), JPEG)
     }
+    await uploadBytes(ref(storage, visitorPhoto(A, 'vst_existing01')), jpeg(), JPEG)
+    await uploadBytes(ref(storage, visitorPhoto(B, 'vst_existingbb')), jpeg(), JPEG)
     for (const p of [penaltyPhoto(A, 'pen_issued0001'), penaltyPhoto(A, 'pen_issued0002'), penaltyPhoto(B, 'pen_issuedbbbb')]) {
       await uploadBytes(ref(storage, p), jpeg(), JPEG)
     }
@@ -308,5 +312,30 @@ describe('penalty evidence', () => {
     for (const s of [securityA(), officerA(), drvA1(), env.unauthenticatedContext().storage()]) await assertFails(getBytes(ref(s, penaltyPhoto(A, 'pen_issued0001'))))
     for (const s of [adminA(), safetyA(), supA1()]) await assertFails(getBytes(ref(s, penaltyPhoto(B, 'pen_issuedbbbb'))))
     await assertFails(getBytes(ref(as('safB', { role: 'safety', tenantId: B }), penaltyPhoto(A, 'pen_issued0001'))))
+  })
+})
+
+describe('visitor photos', () => {
+  it('the admin and supervisors upload and replace a photo for their company', async () => {
+    for (const [s, vid] of [[adminA(), 'vst_newadmin01'], [supA1(), 'vst_newsuper01']] as const) {
+      await assertSucceeds(uploadBytes(ref(s, visitorPhoto(A, vid)), jpeg(), JPEG))
+      await assertSucceeds(uploadBytes(ref(s, visitorPhoto(A, vid)), jpeg(2000), JPEG)) // replacing a visitor's photo is allowed
+    }
+  })
+
+  it('refuses everything else: other roles, other companies, wrong type, size, file name, delete', async () => {
+    for (const s of [safetyA(), officerA(), securityA(), drvA1()]) await assertFails(uploadBytes(ref(s, visitorPhoto(A, 'vst_nobody0001')), jpeg(), JPEG))
+    await assertFails(uploadBytes(ref(adminA(), visitorPhoto(B, 'vst_crosstenan')), jpeg(), JPEG))
+    await assertFails(uploadBytes(ref(adminA(), visitorPhoto(A, 'vst_wrongtype1')), jpeg(), { contentType: 'image/png' }))
+    await assertFails(uploadBytes(ref(adminA(), visitorPhoto(A, 'vst_toolarge001')), jpeg(1100 * 1024), JPEG))
+    await assertFails(uploadBytes(ref(adminA(), visitorPhoto(A, 'bad-id')), jpeg(), JPEG))
+    await assertFails(uploadBytes(ref(adminA(), `tenants/${A}/visitors/vst_existing01.png`), jpeg(), JPEG))
+    await assertFails(deleteObject(ref(adminA(), visitorPhoto(A, 'vst_existing01'))))
+  })
+
+  it('is read by the admin, supervisors, the Safety Officer and security of that company only', async () => {
+    for (const s of [adminA(), supA1(), safetyA(), securityA()]) await assertSucceeds(getBytes(ref(s, visitorPhoto(A, 'vst_existing01'))))
+    for (const s of [officerA(), drvA1(), env.unauthenticatedContext().storage()]) await assertFails(getBytes(ref(s, visitorPhoto(A, 'vst_existing01'))))
+    for (const s of [adminA(), securityA()]) await assertFails(getBytes(ref(s, visitorPhoto(B, 'vst_existingbb'))))
   })
 })
