@@ -75,6 +75,20 @@ export const PERMISSIONS = {
   'visit.checkOut': ['security'],
   'visit.unloadingCheck': ['yard'],
   'visit.summary': ['admin', 'officer', 'supervisor', 'safety', 'security', 'yard'],
+  // Visitor / pedestrian passes: a lightweight pass for people on foot (auditors, inspectors, guests), parallel to the vehicle
+  // lifecycle and sharing none of its rules. The Company Admin and supervisors issue, edit and revoke; Security checks a
+  // visitor in and out (and only that) through the functions; the Safety Officer and Yard Officer see who is on site, read
+  // only. The admin owns the settings (time inside, default validity).
+  'visitor.view': ['admin', 'supervisor'],
+  'visitor.manage': ['admin', 'supervisor'],
+  'visitorPass.issue': ['admin', 'supervisor'],
+  'visitorPass.revoke': ['admin', 'supervisor'],
+  'visitorPass.view': ['admin', 'supervisor'],
+  'visitorPass.lookup': ['admin', 'supervisor', 'safety', 'security'],
+  'visitorPass.checkIn': ['security'],
+  'visitorPass.checkOut': ['security'],
+  'visitorPass.onSite': ['admin', 'supervisor', 'safety', 'yard', 'security'],
+  'visitor.settings': ['admin'],
   // Own account.
   'account.view': ['admin', 'officer', 'supervisor', 'safety', 'security', 'yard', 'driver'],
   'account.password.change': [...ALL_STAFF],

@@ -76,3 +76,7 @@ export const UnloadingPage = lazy(() => import('@/features/visits/UnloadingPage'
 export const DailySummaryPage = lazy(() => import('@/features/visits/DailySummaryPage'))
 export const VisitsPage = lazy(() => import('@/features/visits/VisitsPage'))
 export const VisitDetailPage = lazy(() => import('@/features/visits/VisitDetailPage'))
+// Visitor / pedestrian passes: the admin and supervisor list, the live on-site view, and the QR address of a pass.
+export const VisitorsPage = lazy(() => import('@/features/visitors/VisitorsPage'))
+export const OnSitePage = lazy(() => import('@/features/visitors/OnSitePage'))
+export const VisitorPassRoute = lazy(() => import('@/features/visitors/VisitorPassRoute'))

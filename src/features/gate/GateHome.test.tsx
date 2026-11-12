@@ -1,5 +1,5 @@
 // Module 12: the security home is one giant scan button, the plate search right under it, and two plain tabs.
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -17,6 +17,7 @@ vi.mock('./queries', () => ({
   useTodayGatePasses: () => ({ items: [], status: 'ready', cacheSince: null, lastSyncedAt: null, capped: false, retry: vi.fn() }),
 }))
 vi.mock('@/features/scan/QrScanner', () => ({ QrScanner: () => null }))
+vi.mock('@/features/visitors/VisitorGate', () => ({ default: () => <p>visitor mode</p> }))
 
 import GateHome from './GateHome'
 
@@ -29,5 +30,22 @@ describe('GateHome', () => {
     expect(screen.getAllByRole('button', { name: /scan/i })).toHaveLength(1)
     expect(screen.getByRole('tab', { name: /Waiting at gate/ })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Let in today/ })).toBeInTheDocument()
+  })
+
+  it('has a Vehicle / Visitor toggle: vehicle is the default, and the mode lives in the address', async () => {
+    render(<MemoryRouter initialEntries={['/security']}><GateHome /></MemoryRouter>)
+    expect(screen.getByRole('button', { name: 'Vehicle' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Visitor' })).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(screen.getByRole('button', { name: 'Visitor' }))
+    expect(await screen.findByText('visitor mode')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Search by plate')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Vehicle' }))
+    expect(screen.getByLabelText('Search by plate')).toBeInTheDocument()
+  })
+
+  it('opens straight in visitor mode from ?mode=visitor', async () => {
+    render(<MemoryRouter initialEntries={['/security?mode=visitor']}><GateHome /></MemoryRouter>)
+    expect(await screen.findByText('visitor mode')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Visitor' })).toHaveAttribute('aria-pressed', 'true')
   })
 })

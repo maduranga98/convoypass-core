@@ -125,7 +125,7 @@ export interface AuditEntry {
   actorRole: Role | 'system' | 'superadmin'
   /** Display name of a non-tenant actor (`ConvoyPass Super Admin`): the tenant's admins cannot read `operators`. */
   actorName?: string
-  targetType: 'user' | 'vehicle' | 'contractor' | 'tenant' | 'pass' | 'gateEvent' | 'notification' | 'penalty' | 'penaltyType' | 'inspection' | 'visit' | 'gatePass' | 'qualification'
+  targetType: 'user' | 'vehicle' | 'contractor' | 'tenant' | 'pass' | 'gateEvent' | 'notification' | 'penalty' | 'penaltyType' | 'inspection' | 'visit' | 'gatePass' | 'qualification' | 'visitor' | 'visitorPass'
   targetId: string
   meta: Record<string, string | number | boolean | null>
 }
@@ -181,6 +181,10 @@ export interface TenantData {
   autoIssueGatePasses?: boolean
   /** The month (`YYYY-MM`) whose rollover (expiry, optional auto-issue) already ran. */
   gatePassRolloverMonth?: string
+  /** Visitor passes: `starter` caps new passes at 20 a month. Absent = not capped. Set by the operator (there is no billing in the app). */
+  plan?: string
+  /** Visitor passes: maximum time inside and default validity (admin, `updateVisitorSettings`). */
+  visitorSettings?: { maxDwellMinutes?: number; defaultValidDays?: number }
 }
 
 
@@ -460,4 +464,60 @@ export interface VisitData {
   /** Set by the scheduled job once the visit has stayed checked in for the company's dwell limit. A warning only. */
   dwellWarning: boolean
   dwellWarningAt?: number | null
+}
+
+// ---- Visitor / pedestrian passes ---------------------------------------------------------------------
+
+/** `visitors/{vst_…}`: a person who enters on foot. Times are milliseconds here; the port converts. */
+export interface VisitorData {
+  tenantId: string
+  fullName: string
+  phone: string
+  idNumber: string | null
+  /** Uppercase letters and digits of `idNumber`: lets the issue form find a returning visitor. */
+  idKey: string | null
+  /** The visitor's own employer. */
+  organization: string | null
+  /** `tenants/{tenantId}/visitors/{visitorId}.jpg`: a Storage path, never a URL. */
+  photoPath: string | null
+  createdAt: number
+  createdBy: string
+  updatedAt: number
+}
+
+export interface VisitorPassData {
+  tenantId: string
+  visitorId: string
+  /** Copied at issue time so the gate and the on-site list never need the visitor record (and never see phone or id number). */
+  visitorName: string
+  visitorOrganization: string | null
+  hostName: string | null
+  purposeOfVisit: string
+  photoPath: string | null
+  /** A gate id from `tenants.gates` (the closest thing to a site). */
+  siteId: string
+  siteName: string
+  passCode: string
+  status: 'active' | 'checked_in' | 'checked_out' | 'expired' | 'revoked'
+  /** `YYYYMM` in the company timezone: the month the pass is counted in. */
+  month: string
+  issuedAt: number
+  issuedBy: { uid: string; name: string; role: Role }
+  validFrom: number
+  validUntil: number
+  maxDwellMinutes: number
+  checkInAt: number | null
+  checkInBy: { uid: string; name: string } | null
+  checkInRequestId: string | null
+  checkOutAt: number | null
+  checkOutBy: { uid: string; name: string } | null
+  checkOutRequestId: string | null
+  /** Set by the schedule when a visitor is still inside past `maxDwellMinutes`. A flag only. */
+  dwellWarning: boolean
+  dwellWarningAt: number | null
+  revokedAt: number | null
+  revokedBy: { uid: string; name: string } | null
+  revokeReason: string | null
+  expiredAt: number | null
+  notes: string
 }

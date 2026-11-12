@@ -161,6 +161,18 @@ beforeEach(async () => {
         unloadingCheck: null, checkOut: null, driverOnDutyLock: status === 'checked_in', dwellWarning: false,
       })
     }
+    // Visitor passes: two of tenant A (one checked in, one checked out), one of tenant B; visitors and this month's usage counters.
+    for (const [id, tenantId, status] of [['vsp_a1', A, 'checked_in'], ['vsp_a1_out', A, 'checked_out'], ['vsp_b1', B, 'checked_in']] as const) {
+      await setDoc(doc(db, 'visitorPasses', id), {
+        tenantId, visitorId: `vst_${id}`, visitorName: 'V', passCode: 'ABCDEFGH', status, month: '202603', issuedAt: when, validFrom: when, validUntil: when,
+        siteId: 'main', siteName: 'Main Gate', checkInAt: when, maxDwellMinutes: 480, dwellWarning: false,
+      })
+    }
+    await setDoc(doc(db, 'visitors', 'vst_a1'), { tenantId: A, fullName: 'V', phone: '94771234567', idNumber: '851234567V', createdAt: when })
+    await setDoc(doc(db, 'visitors', 'vst_b1'), { tenantId: B, fullName: 'V', phone: '94771234567', idNumber: null, createdAt: when })
+    await setDoc(doc(db, 'visitorPassUsage', `${A}_202603`), { tenantId: A, yearMonth: '202603', count: 3 })
+    await setDoc(doc(db, 'visitorPassUsage', `${B}_202603`), { tenantId: B, yearMonth: '202603', count: 9 })
+    await setDoc(doc(db, 'visitorPassCodes', `${A}_ABCDEFGH`), { tenantId: A, passId: 'vsp_a1' })
     // Gate passes: one per contractor of tenant A, one in tenant B; the month-end list of tenant A and B with one entry each.
     for (const [id, tenantId, contractorId] of [['2026-03_veh_a1_drvA1', A, 'c1'], ['2026-03_veh_a2_drvA2', A, 'c2'], ['2026-03_veh_b1_drvB1', B, 'cB']] as const) {
       await setDoc(doc(db, 'gatePasses', id), {
@@ -926,13 +938,82 @@ describe('setupInvites (Module 8)', () => {
   })
 })
 
+describe('visitor passes', () => {
+  const passes = (db: ReturnType<typeof adminA>) => getDocs(query(collection(db, 'visitorPasses'), where('tenantId', '==', A)))
+  const inside = (db: ReturnType<typeof adminA>) => getDocs(query(collection(db, 'visitorPasses'), where('tenantId', '==', A), where('status', '==', 'checked_in')))
+  const ids = (snap: Awaited<ReturnType<typeof passes>>) => snap.docs.map((d) => d.id).sort()
+
+  it('admin, supervisors, the Safety Officer and security read the company’s passes, and nothing of another company', async () => {
+    for (const db of [adminA(), supA1(), safetyA(), securityA()]) {
+      expect(ids(await assertSucceeds(passes(db)))).toEqual(['vsp_a1', 'vsp_a1_out'])
+      await assertSucceeds(getDoc(doc(db, 'visitorPasses', 'vsp_a1')))
+      await assertFails(getDoc(doc(db, 'visitorPasses', 'vsp_b1')))
+      await assertFails(getDocs(query(collection(db, 'visitorPasses'), where('tenantId', '==', B))))
+    }
+  })
+
+  it('the Yard Officer reads visitors who are still inside, never one who has left', async () => {
+    const db = yardA()
+    expect(ids(await assertSucceeds(inside(db)))).toEqual(['vsp_a1'])
+    await assertSucceeds(getDoc(doc(db, 'visitorPasses', 'vsp_a1')))
+    await assertFails(getDoc(doc(db, 'visitorPasses', 'vsp_a1_out')))
+    await assertFails(passes(db))
+    await assertFails(getDoc(doc(db, 'visitorPasses', 'vsp_b1')))
+  })
+
+  it('officers, drivers and signed-out users have no access', async () => {
+    for (const db of [officerA(), drvA1(), env.unauthenticatedContext().firestore()]) {
+      await assertFails(getDoc(doc(db, 'visitorPasses', 'vsp_a1')))
+      await assertFails(passes(db))
+      await assertFails(inside(db))
+    }
+  })
+
+  it('visitor records (phone, id number) are read by the admin and supervisors only', async () => {
+    for (const db of [adminA(), supA1()]) {
+      await assertSucceeds(getDoc(doc(db, 'visitors', 'vst_a1')))
+      expect((await assertSucceeds(getDocs(query(collection(db, 'visitors'), where('tenantId', '==', A))))).size).toBe(1)
+      await assertFails(getDoc(doc(db, 'visitors', 'vst_b1')))
+    }
+    for (const db of [securityA(), safetyA(), yardA(), officerA(), drvA1()]) {
+      await assertFails(getDoc(doc(db, 'visitors', 'vst_a1')))
+      await assertFails(getDocs(query(collection(db, 'visitors'), where('tenantId', '==', A))))
+    }
+  })
+
+  it('the monthly usage counter is read by the admin and supervisors for their own company, including a month with no pass yet', async () => {
+    for (const db of [adminA(), supA1()]) {
+      expect((await assertSucceeds(getDoc(doc(db, 'visitorPassUsage', `${A}_202603`)))).data()).toMatchObject({ count: 3 })
+      await assertSucceeds(getDoc(doc(db, 'visitorPassUsage', `${A}_209912`))) // not created yet: "not found", not denied
+      await assertFails(getDoc(doc(db, 'visitorPassUsage', `${B}_202603`)))
+      await assertFails(getDoc(doc(db, 'visitorPassUsage', `${B}_209912`)))
+    }
+    for (const db of [securityA(), safetyA(), yardA(), officerA(), drvA1()]) await assertFails(getDoc(doc(db, 'visitorPassUsage', `${A}_202603`)))
+  })
+
+  it('nobody writes any of it from a client, security and the admin included (callables only), and the code guards are closed', async () => {
+    for (const db of [adminA(), supA1(), safetyA(), securityA(), yardA(), officerA(), drvA1()]) {
+      await assertFails(setDoc(doc(db, 'visitorPasses', 'vsp_new'), { tenantId: A, status: 'active' }))
+      await assertFails(updateDoc(doc(db, 'visitorPasses', 'vsp_a1'), { status: 'checked_out' }))
+      await assertFails(deleteDoc(doc(db, 'visitorPasses', 'vsp_a1')))
+      await assertFails(setDoc(doc(db, 'visitors', 'vst_new'), { tenantId: A, fullName: 'X' }))
+      await assertFails(updateDoc(doc(db, 'visitors', 'vst_a1'), { fullName: 'X' }))
+      await assertFails(setDoc(doc(db, 'visitorPassUsage', `${A}_202603`), { tenantId: A, count: 0 }))
+      await assertFails(updateDoc(doc(db, 'visitorPassUsage', `${A}_202603`), { count: 0 }))
+      await assertFails(getDoc(doc(db, 'visitorPassCodes', `${A}_ABCDEFGH`)))
+      await assertFails(setDoc(doc(db, 'visitorPassCodes', `${A}_ZZZZZZZZ`), { tenantId: A }))
+    }
+  })
+})
+
 describe('platform operators (Module 9)', () => {
   const operator = () => as('op1', { role: 'platform', platformAdmin: true, email_verified: true })
-  const COLLECTIONS = ['tenants', 'users', 'contractors', 'vehicles', 'drivers', 'vehiclePlates', 'passes', 'gateEvents', 'auditLog', 'notifications', 'rateLimits', 'setupInvites', 'operators', 'platformAuditLog', 'penalties', 'penaltyTypes', 'inspections', 'visits', 'gatePasses', 'monthEndQualification'] as const
+  const COLLECTIONS = ['tenants', 'users', 'contractors', 'vehicles', 'drivers', 'vehiclePlates', 'passes', 'gateEvents', 'auditLog', 'notifications', 'rateLimits', 'setupInvites', 'operators', 'platformAuditLog', 'penalties', 'penaltyTypes', 'inspections', 'visits', 'gatePasses', 'monthEndQualification', 'visitors', 'visitorPasses', 'visitorPassUsage', 'visitorPassCodes'] as const
   const KNOWN_DOCS: Record<string, string[]> = {
     tenants: [A, B], users: ['adminA', 'drvA1', 'op1'], contractors: ['c1'], vehicles: ['veh_a1'], drivers: ['drvA1'],
     vehiclePlates: [`${A}_WPLJ4821`], passes: ['veh_a1_20260310'], gateEvents: ['den_platform'], auditLog: ['a1'], notifications: ['n_drv'],
     rateLimits: ['drvA1_createUser'], setupInvites: ['c'.repeat(64)], operators: ['op1'], platformAuditLog: ['p1'], penalties: ['pen_c1'], penaltyTypes: ['pty_a'], inspections: ['insp_c1'], visits: ['vis_a1'], gatePasses: ['2026-03_veh_a1_drvA1'], monthEndQualification: [`${A}_2026-04`],
+    visitors: ['vst_a1'], visitorPasses: ['vsp_a1'], visitorPassUsage: [`${A}_202603`], visitorPassCodes: [`${A}_ABCDEFGH`],
   }
 
   it('is denied on every collection: single reads (even of its own uid), lists, tenant-filtered queries and writes', async () => {

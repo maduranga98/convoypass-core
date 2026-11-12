@@ -1,4 +1,4 @@
-import { ChartNoAxesColumn, ClipboardCheck, ListChecks, LogOut, RotateCcw, ShieldPlus, UserRound } from 'lucide-react'
+import { ChartNoAxesColumn, ClipboardCheck, ListChecks, LocateFixed, LogOut, RotateCcw, ShieldPlus, UserRound } from 'lucide-react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { BrandMark } from '@/components/BrandMark'
 import { cn } from '@/lib/cn'
@@ -17,6 +17,7 @@ const nav = [
   { to: '/safety/penalties/new', label: t.nav.issue, short: t.nav.issueShort, icon: ShieldPlus, end: false },
   { to: '/safety/inspections/new', label: t.nav.inspect, short: t.nav.inspect, icon: ClipboardCheck, end: false },
   { to: '/safety/reinspection', label: t.nav.reinspection, short: t.nav.reinspectionShort, icon: RotateCcw, end: false },
+  { to: '/safety/on-site', label: strings.visitors.nav.onSite, short: strings.visitors.nav.onSiteShort, icon: LocateFixed, end: false },
   { to: '/safety/summary', label: t.nav.today, short: t.nav.today, icon: ChartNoAxesColumn, end: false },
 ] as const
 

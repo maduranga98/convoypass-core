@@ -3,6 +3,7 @@ rules_version = '2';
 // Driver photos: tenants/{tenantId}/contractors/{contractorId}/drivers/{uid}.jpg
 // Pass evidence: tenants/{tenantId}/passes/{vehicleId}/{dateKey}/{attempt}/{file}
 // Penalty evidence: tenants/{tenantId}/penalties/{penaltyId}/evidence.jpg
+// Visitor photos: tenants/{tenantId}/visitors/{visitorId}.jpg
 // Role, tenant and contractor come from custom claims (set by Cloud Functions). Everything else is denied.
 service firebase.storage {
   match /b/{bucket}/o {
@@ -101,6 +102,18 @@ service firebase.storage {
         && request.resource.contentType == 'image/jpeg'
         && request.resource.size < 700 * 1024
         && !firestore.exists(penaltyPath(pid));
+    }
+
+    // Visitor photos (one optional photo per visitor). The browser uploads it BEFORE `issueVisitorPass` (or `updateVisitor`)
+    // uses it, and the function re-verifies the file. Write: the company's admins and supervisors, create/replace only, never
+    // deleted from the client. Read: those, the Safety Officer and security (the gate shows the photo). Nobody else.
+    match /tenants/{tid}/visitors/{file} {
+      allow read: if inTenant(tid) && role() in ['admin', 'supervisor', 'safety', 'security'];
+      allow create, update: if inTenant(tid)
+        && role() in ['admin', 'supervisor']
+        && file.matches('vst_[a-z0-9]{10}[.]jpg')
+        && request.resource.contentType == 'image/jpeg'
+        && request.resource.size < 1024 * 1024;
     }
 
     match /{allPaths=**} {

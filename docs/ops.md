@@ -403,6 +403,14 @@ npm run drill:restore        # starts the emulators, seeds demo data, exports, w
 
 Authentication users are **not** in Firestore backups: they are recreated from the console export (`firebase auth:export users.json --project PROJECT`, run it weekly and keep the file somewhere private) or via *Users > Create user* in the app.
 
+## Visitor passes: plans, schedule, indexes
+
+- **Plan.** The visitor pass cap reads `tenants.plan` (`starter` = 20 new passes a month, `growth` / `compliance` = unlimited, absent = unlimited). Set it after a client signs: `npm run tenant:plan -- --env prod --confirm-prod --tenant ten_… --plan starter` (the tenant id is on the Super admin console, Workspaces). `--plan none` removes it. The change is audited in `platformAuditLog` and takes effect on the next pass issued.
+- **Schedule.** `expireVisitorPasses` runs every 15 minutes (UTC): expires `active` passes past `validUntil` and flags visitors inside past their limit. Idempotent; a company that fails is logged (`fn: expireVisitorPasses`) and retried by the next run.
+- **Indexes** (`firestore.indexes.json`, deploy before the functions): `visitorPasses` tenant + `issuedAt` desc (the list), tenant + `status` + `validUntil` (the expiry query), `visitors` tenant + `updatedAt` desc (the returning-visitor search).
+- **Storage rules** gain `tenants/{tenant}/visitors/{vst_…}.jpg` (admin or supervisor write, JPEG under 1 MB; admin, supervisor, Safety Officer and security read). No cross-service lookup, so no new IAM grant.
+- **Retention.** Visitor records and passes are kept (they are the audit trail of who entered). A client's privacy policy should state a period; there is no automatic purge of visitors yet.
+
 ## TTL policies
 
 Notifications expire 30 days after creation (`expireAt`) and rate-limit windows expire shortly after use. Firestore deletes expired documents for free once a TTL policy exists. This is a console or `gcloud` step, not code:

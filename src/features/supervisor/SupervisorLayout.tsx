@@ -1,4 +1,4 @@
-import { CalendarCheck, ClipboardCheck, Footprints, Home, LogOut, QrCode, ShieldAlert, Truck, UserRound, UserRoundPlus, Users } from 'lucide-react'
+import { CalendarCheck, ClipboardCheck, Footprints, Home, IdCard, LocateFixed, LogOut, QrCode, ShieldAlert, Truck, UserRound, UserRoundPlus, Users } from 'lucide-react'
 import { Link, NavLink, Outlet, useMatch } from 'react-router-dom'
 import { BrandMark } from '@/components/BrandMark'
 import { cn } from '@/lib/cn'
@@ -21,6 +21,8 @@ const nav = [
   { to: '/supervisor/assign-drivers', label: t.nav.assign, short: t.nav.assignShort, icon: UserRoundPlus, end: false },
   { to: '/supervisor/penalties', label: t.nav.penalties, short: t.nav.penalties, icon: ShieldAlert, end: false },
   { to: '/supervisor/visits', label: t.nav.visits, short: t.nav.visits, icon: Footprints, end: false },
+  { to: '/supervisor/visitors', label: strings.visitors.nav.visitors, short: strings.visitors.nav.visitors, icon: IdCard, end: false },
+  { to: '/supervisor/on-site', label: strings.visitors.nav.onSite, short: strings.visitors.nav.onSiteShort, icon: LocateFixed, end: false },
   { to: '/supervisor/vehicles', label: t.nav.vehicles, short: t.nav.vehicles, icon: Truck, end: false },
   { to: '/supervisor/drivers', label: t.nav.drivers, short: t.nav.drivers, icon: Users, end: false },
   { to: '/supervisor/qr', label: t.nav.qr, short: t.nav.qrShort, icon: QrCode, end: false },
